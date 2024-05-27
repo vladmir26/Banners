@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Banner Rotator</title>
+    <style>
+        #banner-container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .banner {
+            margin: 10px;
+            display: inline-block;
+            border: 1px solid #ccc;
+            padding: 5px;
+            background-color: #f9f9f9;
+        }
+        .banner img {
+            width: 150px; 
+            height: 100px; 
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="banner-container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <script>
+        const banners = [
+            { id: 1, imageUrl: 'https://via.placeholder.com/150x100', link: 'https://example.com/1', clicks: 5 },
+            { id: 2, imageUrl: 'https://via.placeholder.com/150x100', link: 'https://example.com/2', clicks: 3 },
+            { id: 3, imageUrl: 'https://via.placeholder.com/150x100', link: 'https://example.com/3', clicks: 2 },
+        ];
+
+        const bannerContainer = document.getElementById('banner-container');
+
+        
+        function getStoredClicks() {
+            return JSON.parse(localStorage.getItem('bannerClicks')) || banners.map(b => b.clicks);
+        }
+
+        
+        function storeClicks(clicks) {
+            localStorage.setItem('bannerClicks', JSON.stringify(clicks));
+        }
+
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+       
+        function loadBanners() {
+            bannerContainer.innerHTML = '';
+            const clicks = getStoredClicks();
+            shuffleArray(banners);
+            banners.forEach((banner, index) => {
+                const bannerElement = document.createElement('a');
+                bannerElement.href = banner.link;
+                bannerElement.className = 'banner';
+                bannerElement.innerHTML = `<img src="${banner.imageUrl}" alt="Banner ${banner.id}">`;
+                if (clicks[banner.id - 1] > 0) {
+                    bannerElement.style.display = 'inline-block';
+                    bannerElement.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        clicks[banner.id - 1] -= 1;
+                        storeClicks(clicks);
+                        logClick(banner);
+                        if (clicks[banner.id - 1] === 0) {
+                            bannerElement.style.display = 'none';
+                            logClickToFile(banner);
+                        }
+                    });
+                } else {
+                    bannerElement.style.display = 'none';
+                }
+                bannerContainer.appendChild(bannerElement);
+                console.log(`Добавлен баннер: ${banner.id}, осталось кликов: ${clicks[banner.id - 1]}`);
+            });
+        }
+
+        function logClick(banner) {
+            axios.get('https://api.ipify.org?format=json')
+                .then(response => {
+                    const ip = response.data.ip;
+                    const data = `IP: ${ip}, Link: ${banner.link}\n`;
+                    downloadFile(data, 'clicks.log');
+                })
+                .catch(error => console.error('Error fetching IP:', error));
+        }
+
+        function logClickToFile(banner) {
+            axios.get('https://api.ipify.org?format=json')
+                .then(response => {
+                    const ip = response.data.ip;
+                    const data = `Banner ${banner.id} expired. IP: ${ip}, Link: ${banner.link}\n`;
+                    downloadFile(data, 'expired_banners.log');
+                })
+                .catch(error => console.error('Error fetching IP:', error));
+        }
+
+        function downloadFile(content, fileName) {
+            const a = document.createElement('a');
+            const file = new Blob([content], { type: 'text/plain' });
+            a.href = URL.createObjectURL(file);
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        loadBanners();
+
+        function setBannerClicks(bannerId, clicks) {
+            const storedClicks = getStoredClicks();
+            storedClicks[bannerId - 1] = clicks;
+            storeClicks(storedClicks);
+            loadBanners();
+        }
+
+        setTimeout(() => {
+            setBannerClicks(1, 5); 
+        }, 5000);
+    </script>
+</body>
+</html>
+
